@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Extrator de Comentários</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f7fa;
+    --surface: #ffffff;
+    --surface2: #ffffff;
+    --border: #dde4ed;
+    --border2: #c8d4e0;
+    --text: #1a2a3a;
+    --muted: #6CABDD;
+    --accent: #6CABDD;
+    --accent-dark: #1C2C5B;
+    --accent-dim: rgba(108,171,221,0.1);
+    --accent-border: rgba(108,171,221,0.35);
+    --green: #1a7a3c;
+    --green-bg: #eefaf2;
+    --green-border: rgba(26,122,60,0.2);
+    --red: #c0392b;
+    --red-bg: #fff0f0;
+    --red-border: rgba(192,57,43,0.2);
+    --label: #2e3f52;
+    --helper: #8a9ab0;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 400;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 56px 20px 0;
+  }
+
+  .main-content {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .header { text-align: center; margin-bottom: 40px; }
+
+  h1 {
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    color: var(--accent-dark);
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+
+  .subtitle { font-size: 14px; color: var(--helper); }
+
+  .card {
+    width: 100%; max-width: 560px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 4px rgba(28,44,91,0.06);
+  }
+
+  .field { margin-bottom: 20px; }
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    color: var(--label);
+    margin-bottom: 5px;
+  }
+
+  .required-star {
+    color: #d63c3c;
+    font-size: 13px;
+    line-height: 1;
+    margin-right: 1px;
+  }
+
+  input[type="password"],
+  input[type="text"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input[type="password"]::placeholder,
+  input[type="text"]::placeholder { color: var(--helper); opacity: 0.7; }
+
+  input[type="password"]:focus,
+  input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+
+  .hint {
+    font-size: 11.5px;
+    color: var(--helper);
+    margin-top: 5px;
+    line-height: 1.5;
+  }
+
+  .hint a { color: var(--accent-dark); text-decoration: none; opacity: 0.75; }
+  .hint a:hover { opacity: 1; text-decoration: underline; }
+
+  /* ── Date range + custom picker ─────────────────────────── */
+  .date-range {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .date-sub-label {
+    font-size: 11.5px;
+    color: var(--label);
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+
+  .dp-rel { position: relative; }
+
+  .dp-trigger {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    text-align: left;
+  }
+
+  .dp-trigger:hover { border-color: var(--accent); }
+
+  .dp-trigger.dp-open,
+  .dp-trigger:focus-visible {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+    outline: none;
+  }
+
+  .dp-icon { color: var(--helper); flex-shrink: 0; }
+
+  .dp-display {
+    flex: 1;
+    color: var(--helper);
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dp-display.dp-has-value { color: var(--text); }
+
+  .dp-clear {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--helper);
+    font-size: 11px;
+    padding: 3px 5px;
+    border-radius: 4px;
+    line-height: 1;
+    opacity: 0.6;
+    display: none;
+  }
+
+  .dp-clear:hover { opacity: 1; background: var(--accent-dim); }
+
+  /* Popover */
+  .dp-popover {
+    position: absolute;
+    z-index: 200;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(28,44,91,0.13);
+    padding: 14px 14px 12px;
+    width: 240px;
+    margin-top: 6px;
+    left: 0;
+  }
+
+  .dp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .dp-nav {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 3px 8px;
+    border-radius: 6px;
+    color: var(--label);
+    font-size: 16px;
+    line-height: 1;
+    transition: background 0.15s;
+  }
+
+  .dp-nav:hover { background: var(--accent-dim); }
+
+  .dp-month-year {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--label);
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .dp-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 2px;
+  }
+
+  .dp-weekday {
+    text-align: center;
+    font-size: 9.5px;
+    font-weight: 500;
+    color: var(--helper);
+    padding: 2px 0 5px;
+    font-family: 'DM Sans', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .dp-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+  }
+
+  .dp-day {
+    text-align: center;
+    padding: 5px 2px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text);
+    transition: background 0.1s, color 0.1s;
+    border: none;
+    background: none;
+    line-height: 1.4;
+  }
+
+  .dp-day:hover { background: var(--accent-dim); color: var(--accent-dark); }
+  .dp-day.dp-today { font-weight: 600; color: var(--accent-dark); }
+  .dp-day.dp-selected { background: var(--accent-dark); color: #fff; }
+  .dp-day.dp-selected:hover { background: var(--accent-dark); color: #fff; }
+  .dp-day.dp-other-month { color: var(--border2); }
+  .dp-day.dp-other-month:hover { background: #f5f7fa; color: var(--helper); }
+
+  /* ── Buttons ────────────────────────────────────────────── */
+  .btn-primary {
+    width: 100%; padding: 13px;
+    background: var(--accent-dark);
+    color: #ffffff;
+    border: none; border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    letter-spacing: -0.01em;
+    margin-top: 8px;
+  }
+
+  .btn-primary:hover { background: #253d70; }
+  .btn-primary:active { transform: scale(0.99); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    width: 100%; padding: 13px;
+    background: var(--green-bg);
+    color: var(--green);
+    border: 1px solid var(--green-border);
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    transition: opacity 0.2s;
+    letter-spacing: -0.01em;
+    display: none; margin-top: 12px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+  }
+
+  .btn-secondary:hover { opacity: 0.82; }
+  .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Status ─────────────────────────────────────────────── */
+  #status {
+    display: none; padding: 11px 14px; border-radius: 10px;
+    font-size: 13px; margin-top: 14px; line-height: 1.4;
+  }
+
+  .status-loading { background: var(--accent-dim); color: var(--accent-dark); border: 1px solid var(--accent-border); }
+  .status-success { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .status-error { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+
+  /* ── Info block ─────────────────────────────────────────── */
+  .info-block {
+    margin-top: 20px;
+    background: #f8fafc;
+    border: 1px solid #e0e8f0;
+    border-radius: 10px;
+    padding: 13px 16px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    line-height: 1.55;
+  }
+
+  .info-block-icon { flex-shrink: 0; margin-top: 2px; color: #9ab3c8; }
+  .info-block-text { font-size: 11.5px; color: #7a8fa0; line-height: 1.55; }
+  .info-block-text a { color: #4a6a80; text-decoration: none; border-bottom: 1px solid #c0d4e0; }
+  .info-block-text a:hover { color: var(--accent-dark); border-bottom-color: var(--accent-dark); }
+
+  /* ── Footer ─────────────────────────────────────────────── */
+  .page-footer {
+    width: 100%;
+    padding: 24px 20px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin-top: auto;
+  }
+
+  .footer-text { font-size: 12px; color: #aab8c6; font-family: 'DM Sans', sans-serif; }
+  .footer-logo { max-width: 20px; max-height: 20px; opacity: 0.7; }
+
+  /* ── Spinner ─────────────────────────────────────────────── */
+  .spinner {
+    display: inline-block; width: 11px; height: 11px;
+    border: 1.5px solid var(--accent-border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-right: 7px; vertical-align: middle;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .fade-in { animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div class="main-content">
+  <div class="header">
+    <h1>Extrator de comentários</h1>
+    <p class="subtitle">Exporte comentários de qualquer arquivo do Figma ou FigJam para Excel</p>
+  </div>
+
+  <div class="card fade-in">
+
+    <!-- Personal access token -->
+    <div class="field">
+      <label><span class="required-star">*</span>Personal access token</label>
+      <p class="hint" style="margin-bottom: 6px; margin-top: 2px;">Gere em <a href="https://www.figma.com/settings" target="_blank" rel="noopener noreferrer">figma.com/settings</a> → Security → Personal access tokens.</p>
+      <input type="password" id="input-token" placeholder="figd_..." />
+    </div>
+
+    <!-- URL do arquivo -->
+    <div class="field">
+      <label><span class="required-star">*</span>URL do arquivo</label>
+      <p class="hint" style="margin-bottom: 6px; margin-top: 2px;">Cole a URL completa do arquivo do Figma ou FigJam.</p>
+      <input type="text" id="input-url" placeholder="https://www.figma.com/board/ABC123/Nome-do-arquivo" />
+    </div>
+
+    <!-- Período dos comentários (opcional) -->
+    <div class="field">
+      <label>Período dos comentários</label>
+      <p class="hint" style="margin-top: 2px; margin-bottom: 10px;">Filtre os comentários pelo período de criação. Se nenhum período for informado, todos os comentários do arquivo serão considerados.</p>
+      <div class="date-range">
+        <div class="dp-rel">
+          <p class="date-sub-label">Data inicial</p>
+          <div class="dp-rel">
+            <button type="button" class="dp-trigger" id="dp-from-trigger" aria-haspopup="dialog" aria-expanded="false">
+              <svg class="dp-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span class="dp-display" id="dp-from-display">Selecionar</span>
+            </button>
+            <button type="button" class="dp-clear" id="dp-from-clear" aria-label="Limpar data inicial">✕</button>
+          </div>
+          <input type="hidden" id="input-date-from">
+        </div>
+        <div class="dp-rel">
+          <p class="date-sub-label">Data final</p>
+          <div class="dp-rel">
+            <button type="button" class="dp-trigger" id="dp-to-trigger" aria-haspopup="dialog" aria-expanded="false">
+              <svg class="dp-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span class="dp-display" id="dp-to-display">Selecionar</span>
+            </button>
+            <button type="button" class="dp-clear" id="dp-to-clear" aria-label="Limpar data final">✕</button>
+          </div>
+          <input type="hidden" id="input-date-to">
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="btn-fetch" onclick="fetchComments()">Buscar comentários</button>
+
+    <button class="btn-secondary" id="btn-export" onclick="exportXLSX()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <polyline points="9 15 12 18 15 15"/>
+      </svg>
+      Baixar planilha
+    </button>
+
+    <div id="status"></div>
+
+    <div class="info-block">
+      <div class="info-block-icon">
+        <img src="info.svg" alt="Ícone informativo" style="width:13px;height:13px;opacity:0.6;">
+      </div>
+      <div class="info-block-text">Seu token é uma chave de acesso pessoal. Após exportar, revogue-o em <a href="https://www.figma.com/settings" target="_blank" rel="noopener noreferrer">Figma → Settings → Security → Personal access tokens</a>.</div>
+    </div>
+
+  </div><!-- /.card -->
+
+</div><!-- /.main-content -->
+
+<div class="page-footer">
+  <img src="city.svg" alt="Logo do City" class="footer-logo">
+  <span class="footer-text">Feito por André Asafe</span>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+var allComments = []; // Filtered list used for export
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function extractFileKey(url) {
+  try {
+    var match = url.match(/figma\.com\/(?:file|board|design)\/([a-zA-Z0-9]+)/);
+    return match ? match[1] : null;
+  } catch(e) { return null; }
+}
+
+function setStatus(html, type) {
+  var el = document.getElementById('status');
+  el.style.display = 'block';
+  el.innerHTML = html;
+  el.className = 'status-' + type;
+}
+
+function formatDatePtBR(iso) {
+  if (!iso) return '';
+  try {
+    var d = new Date(iso);
+    return d.toLocaleDateString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  } catch(e) { return ''; }
+}
+
+function stripHtml(str) {
+  return str ? str.replace(/<[^>]*>/g, '') : '';
+}
+
+// ─── Date range validation ────────────────────────────────────────────────────
+function validateDateRange() {
+  var from = document.getElementById('input-date-from').value;
+  var to   = document.getElementById('input-date-to').value;
+  if (from && to && from > to) {
+    setStatus('A data inicial não pode ser maior que a data final.', 'error');
+    return false;
+  }
+  return true;
+}
+
+// ─── Date filtering ───────────────────────────────────────────────────────────
+// Compares only the date portion (YYYY-MM-DD) of the ISO timestamp
+// against the date-input values. String comparison works correctly for
+// ISO-format dates and avoids all timezone ambiguity.
+function applyDateFilter(comments) {
+  var from = document.getElementById('input-date-from').value; // 'YYYY-MM-DD' or ''
+  var to   = document.getElementById('input-date-to').value;
+
+  console.log('[DEBUG] Período: de=' + (from || '–') + ' até=' + (to || '–'));
+
+  if (!from && !to) {
+    console.log('[DEBUG] Sem filtro de período. Retornando todos os ' + comments.length + ' comentários.');
+    return comments;
+  }
+
+  var filtered = comments.filter(function(c) {
+    if (!c.created_at) return false;
+    var d = c.created_at.substring(0, 10); // 'YYYY-MM-DD'
+    if (from && d < from) return false;
+    if (to   && d > to)   return false;
+    return true;
+  });
+
+  console.log('[DEBUG] Após filtro: ' + filtered.length + ' de ' + comments.length);
+  return filtered;
+}
+
+// ─── Fetch comments from Figma ────────────────────────────────────────────────
+async function fetchComments() {
+  var url   = document.getElementById('input-url').value.trim();
+  var token = document.getElementById('input-token').value.trim();
+  var btn   = document.getElementById('btn-fetch');
+
+  if (!token) { setStatus('Insira seu Personal Access Token.', 'error'); return; }
+  if (!url)   { setStatus('Insira a URL do arquivo.', 'error'); return; }
+  if (!validateDateRange()) return;
+
+  var fileKey = extractFileKey(url);
+  if (!fileKey) { setStatus('URL inválida. Use o formato: figma.com/board/CHAVE/nome', 'error'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Buscando...';
+  document.getElementById('btn-export').style.display = 'none';
+  setStatus('<span class="spinner"></span>Conectando à API do Figma...', 'loading');
+
+  try {
+    var res = await fetch('https://api.figma.com/v1/files/' + fileKey + '/comments', {
+      headers: { 'X-Figma-Token': token }
+    });
+
+    if (!res.ok) {
+      var err = await res.json().catch(function() { return {}; });
+      if (res.status === 403) throw new Error('Token inválido ou sem permissão neste arquivo.');
+      if (res.status === 404) throw new Error('Arquivo não encontrado. Verifique a URL.');
+      throw new Error(err.message || 'Erro HTTP ' + res.status);
+    }
+
+    var data  = await res.json();
+    var raw   = (data.comments || []).sort(function(a, b) {
+      return new Date(a.created_at) - new Date(b.created_at);
+    });
+
+    console.log('[DEBUG] Total buscado da API: ' + raw.length);
+
+    // Apply date filter
+    allComments = applyDateFilter(raw);
+
+    if (allComments.length === 0) {
+      setStatus('Nenhum comentário encontrado no período selecionado.', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Buscar comentários';
+      return;
+    }
+
+    var from = document.getElementById('input-date-from').value;
+    var to   = document.getElementById('input-date-to').value;
+    var msg  = allComments.length + ' comentário(s) encontrado(s)';
+    msg += (from || to) ? ' no período selecionado.' : '.';
+    msg += ' Pronto para exportar.';
+    setStatus(msg, 'success');
+
+    document.getElementById('btn-export').style.display = 'flex';
+    btn.disabled = false;
+    btn.textContent = 'Buscar novamente';
+
+  } catch(e) {
+    setStatus('Erro: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Buscar comentários';
+  }
+}
+
+
+// ─── DatePicker ───────────────────────────────────────────────────────────────
+var MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                 'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+var DAYS_PT   = ['Do','Se','Te','Qu','Qu','Se','Sá'];
+
+function DatePicker(opts) {
+  this.trigger  = document.getElementById(opts.triggerId);
+  this.display  = document.getElementById(opts.displayId);
+  this.clearBtn = document.getElementById(opts.clearId);
+  this.hidden   = document.getElementById(opts.hiddenId);
+  this.value    = null; // 'YYYY-MM-DD' or null
+  this.popover  = null;
+  this._viewYear  = new Date().getFullYear();
+  this._viewMonth = new Date().getMonth();
+  var self = this;
+
+  this.trigger.addEventListener('click', function() {
+    self.isOpen() ? self.close() : self.open();
+  });
+
+  this.clearBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    self._setValue(null);
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && self.isOpen()) self.close();
+  });
+
+  document.addEventListener('mousedown', function(e) {
+    if (!self.isOpen()) return;
+    if (!self.trigger.contains(e.target) && self.popover && !self.popover.contains(e.target)) {
+      self.close();
+    }
+  });
+}
+
+DatePicker.prototype.isOpen = function() {
+  return !!this.popover && !!this.popover.parentNode;
+};
+
+DatePicker.prototype.open = function() {
+  if (this.isOpen()) { this.close(); return; }
+  // Close any other open pickers
+  document.querySelectorAll('.dp-popover').forEach(function(p) {
+    if (p.parentNode) p.parentNode.removeChild(p);
+  });
+  document.querySelectorAll('.dp-trigger').forEach(function(t) {
+    t.classList.remove('dp-open');
+    t.setAttribute('aria-expanded', 'false');
+  });
+
+  if (this.value) {
+    var parts = this.value.split('-');
+    this._viewYear  = parseInt(parts[0], 10);
+    this._viewMonth = parseInt(parts[1], 10) - 1;
+  }
+
+  this.popover = document.createElement('div');
+  this.popover.className = 'dp-popover';
+  this.trigger.parentNode.appendChild(this.popover);
+  this.trigger.classList.add('dp-open');
+  this.trigger.setAttribute('aria-expanded', 'true');
+  this._renderCalendar();
+};
+
+DatePicker.prototype.close = function() {
+  if (!this.isOpen()) return;
+  this.popover.parentNode.removeChild(this.popover);
+  this.popover = null;
+  this.trigger.classList.remove('dp-open');
+  this.trigger.setAttribute('aria-expanded', 'false');
+};
+
+DatePicker.prototype._renderCalendar = function() {
+  var self  = this;
+  var year  = this._viewYear;
+  var month = this._viewMonth;
+  var today = new Date();
+  var todayStr = today.getFullYear() + '-'
+    + String(today.getMonth() + 1).padStart(2, '0') + '-'
+    + String(today.getDate()).padStart(2, '0');
+
+  // Header
+  var header = document.createElement('div');
+  header.className = 'dp-header';
+
+  var prevBtn = document.createElement('button');
+  prevBtn.type = 'button'; prevBtn.className = 'dp-nav';
+  prevBtn.innerHTML = '&#8249;'; prevBtn.setAttribute('aria-label', 'Mês anterior');
+  prevBtn.addEventListener('click', function() {
+    self._viewMonth--;
+    if (self._viewMonth < 0) { self._viewMonth = 11; self._viewYear--; }
+    self._renderCalendar();
+  });
+
+  var monthLabel = document.createElement('span');
+  monthLabel.className = 'dp-month-year';
+  monthLabel.textContent = MONTHS_PT[month] + ' ' + year;
+
+  var nextBtn = document.createElement('button');
+  nextBtn.type = 'button'; nextBtn.className = 'dp-nav';
+  nextBtn.innerHTML = '&#8250;'; nextBtn.setAttribute('aria-label', 'Próximo mês');
+  nextBtn.addEventListener('click', function() {
+    self._viewMonth++;
+    if (self._viewMonth > 11) { self._viewMonth = 0; self._viewYear++; }
+    self._renderCalendar();
+  });
+
+  header.appendChild(prevBtn);
+  header.appendChild(monthLabel);
+  header.appendChild(nextBtn);
+
+  // Weekday labels
+  var weekdays = document.createElement('div');
+  weekdays.className = 'dp-weekdays';
+  DAYS_PT.forEach(function(d) {
+    var cell = document.createElement('div');
+    cell.className = 'dp-weekday'; cell.textContent = d;
+    weekdays.appendChild(cell);
+  });
+
+  // Day grid
+  var grid = document.createElement('div');
+  grid.className = 'dp-grid';
+
+  var firstDayOfWeek = new Date(year, month, 1).getDay(); // 0 = Sunday
+  var daysInMonth    = new Date(year, month + 1, 0).getDate();
+  var daysInPrev     = new Date(year, month, 0).getDate();
+
+  function makeBtn(label, dateStr, extra) {
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'dp-day' + (extra ? ' ' + extra : '');
+    btn.textContent = label;
+    if (dateStr === todayStr && !extra) btn.classList.add('dp-today');
+    if (dateStr === self.value) btn.classList.add('dp-selected');
+    btn.addEventListener('click', function() { self._setValue(dateStr); self.close(); });
+    return btn;
+  }
+
+  // Trailing days from previous month
+  for (var i = 0; i < firstDayOfWeek; i++) {
+    var d = daysInPrev - firstDayOfWeek + 1 + i;
+    var py = month === 0 ? year - 1 : year;
+    var pm = month === 0 ? 11 : month - 1;
+    var ds = py + '-' + String(pm + 1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    grid.appendChild(makeBtn(d, ds, 'dp-other-month'));
+  }
+
+  // Current month days
+  for (var d = 1; d <= daysInMonth; d++) {
+    var ds = year + '-' + String(month + 1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    grid.appendChild(makeBtn(d, ds, ''));
+  }
+
+  // Leading days from next month to fill last row
+  var total = firstDayOfWeek + daysInMonth;
+  var fill  = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (var n = 1; n <= fill; n++) {
+    var ny = month === 11 ? year + 1 : year;
+    var nm = month === 11 ? 0 : month + 1;
+    var ds = ny + '-' + String(nm + 1).padStart(2,'0') + '-' + String(n).padStart(2,'0');
+    grid.appendChild(makeBtn(n, ds, 'dp-other-month'));
+  }
+
+  this.popover.innerHTML = '';
+  this.popover.appendChild(header);
+  this.popover.appendChild(weekdays);
+  this.popover.appendChild(grid);
+};
+
+DatePicker.prototype._setValue = function(dateStr) {
+  this.value        = dateStr;
+  this.hidden.value = dateStr || '';
+  if (dateStr) {
+    var parts = dateStr.split('-');
+    var d = parseInt(parts[2], 10);
+    var m = parseInt(parts[1], 10);
+    var y = parseInt(parts[0], 10);
+    this.display.textContent = String(d).padStart(2,'0') + '/' + String(m).padStart(2,'0') + '/' + y;
+    this.display.classList.add('dp-has-value');
+    this.clearBtn.style.display = 'block';
+  } else {
+    this.display.textContent = 'Selecionar';
+    this.display.classList.remove('dp-has-value');
+    this.clearBtn.style.display = 'none';
+  }
+};
+
+// Initialize both date pickers
+var dpFrom = new DatePicker({
+  triggerId: 'dp-from-trigger', displayId: 'dp-from-display',
+  clearId: 'dp-from-clear',     hiddenId: 'input-date-from'
+});
+var dpTo = new DatePicker({
+  triggerId: 'dp-to-trigger', displayId: 'dp-to-display',
+  clearId: 'dp-to-clear',     hiddenId: 'input-date-to'
+});
+
+// ─── Export using ExcelJS ─────────────────────────────────────────────────────
+async function exportXLSX() {
+  if (allComments.length === 0) {
+    setStatus('Busque comentários antes de exportar.', 'error'); return;
+  }
+  if (!validateDateRange()) return;
+
+  var btnExp = document.getElementById('btn-export');
+  btnExp.disabled = true;
+  setStatus('<span class="spinner"></span>Gerando planilha…', 'loading');
+
+  try {
+    var wb = new ExcelJS.Workbook();
+
+    // ── Style helpers ──────────────────────────────────────────────────────────
+    function argb(hex) { return 'FF' + hex.toUpperCase(); }
+
+    function hStyle(cell, bgHex) {
+      cell.font      = { name: 'Aptos', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(bgHex) } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: false };
+    }
+
+    function dStyle(cell, bgHex, alignH, rightBorder) {
+      cell.font      = { name: 'Aptos', size: 10, color: { argb: argb('101828') } };
+      cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(bgHex) } };
+      cell.alignment = { horizontal: alignH, vertical: 'middle', wrapText: true };
+      var border = { bottom: { style: 'thin', color: { argb: argb('D0D5DD') } } };
+      if (rightBorder) border.right = { style: 'medium', color: { argb: argb('D0D5DD') } };
+      cell.border = border;
+    }
+
+    // ── Sheet: Listas (dropdown source) ───────────────────────────────────────
+    var listsWs = wb.addWorksheet('Listas');
+    listsWs.getRow(1).height = 28;
+
+    var listsDef = [
+      { header: 'Tema principal',    bg: 'EAF3FB', opts: ['UI', 'UX', 'Content', 'Regra de negócio', 'Outro'] },
+      { header: 'Tipo de feedback',  bg: 'F2ECFB', opts: ['Problema', 'Pergunta', 'Sugestão'] },
+      { header: 'Criticidade',       bg: 'FFF2E8', opts: ['Alta', 'Média', 'Baixa'] },
+      { header: 'Status de triagem', bg: 'FFF6E8', opts: ['Pendente', 'Em análise', 'Incorporado', 'Não incorporado', 'Depende de alinhamento'] },
+    ];
+
+    listsDef.forEach(function(col, ci) {
+      listsWs.getColumn(ci + 1).width = 26;
+      var hc = listsWs.getCell(1, ci + 1);
+      hc.value = col.header;
+      hStyle(hc, '1F3A5F');
+      col.opts.forEach(function(opt, ri) {
+        var cell = listsWs.getCell(ri + 2, ci + 1);
+        cell.value     = opt;
+        cell.font      = { name: 'Aptos', size: 10, color: { argb: argb('101828') } };
+        cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(col.bg) } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+    });
+
+    // ── Sheet: Notas ──────────────────────────────────────────────────────────
+    var notesWs = wb.addWorksheet('Notas');
+    notesWs.getRow(1).height = 28;
+    notesWs.getColumn(1).width = 18;
+    notesWs.getColumn(2).width = 44;
+    ['Status', 'Observação'].forEach(function(h, i) {
+      var cell = notesWs.getCell(1, i + 1);
+      cell.value = h;
+      hStyle(cell, '1F3A5F');
+    });
+
+    // ── Sheet: Comentários ────────────────────────────────────────────────────
+    var ws = wb.addWorksheet('Comentários', {
+      views: [{
+        state: 'frozen', ySplit: 1, xSplit: 0,
+        topLeftCell: 'A2', activePane: 'bottomLeft',
+        showGridLines: false
+      }]
+    });
+
+    var cols = [
+      { label: 'Autor',                           width: 20, headerBg: '1F3A5F', dataBg: 'F6F8FC', align: 'left' },
+      { label: 'Data do comentário',              width: 18, headerBg: '1F3A5F', dataBg: 'F8FAFD', align: 'center' },
+      { label: 'Texto original do comentário',    width: 44, headerBg: '1F3A5F', dataBg: 'FBFCFE', align: 'left',   rb: true },
+      { label: 'Tema principal',                  width: 18, headerBg: '2F5D8C', dataBg: 'EAF3FB', align: 'center', dv: 'Listas!$A$2:$A$6' },
+      { label: 'Tipo de feedback',                width: 18, headerBg: '6C4AB6', dataBg: 'F2ECFB', align: 'center', dv: 'Listas!$B$2:$B$4' },
+      { label: 'Criticidade',                     width: 14, headerBg: 'B54708', dataBg: 'FFF2E8', align: 'center', dv: 'Listas!$C$2:$C$4', rb: true },
+      { label: 'Ação sugerida',                   width: 30, headerBg: '0F766E', dataBg: 'E8F7F5', align: 'left' },
+      { label: 'Status de triagem',               width: 22, headerBg: 'B54708', dataBg: 'FFF6E8', align: 'center', dv: 'Listas!$D$2:$D$6', rb: true },
+      { label: 'Decisão final',                   width: 28, headerBg: '475467', dataBg: 'F5F7FA', align: 'left' },
+      { label: 'Observações',                     width: 28, headerBg: '667085', dataBg: 'FAFAFA', align: 'left' },
+    ];
+
+    cols.forEach(function(col, i) { ws.getColumn(i + 1).width = col.width; });
+
+    // Header row
+    ws.getRow(1).height = 28;
+    cols.forEach(function(col, i) {
+      var cell = ws.getCell(1, i + 1);
+      cell.value = col.label;
+      hStyle(cell, col.headerBg);
+    });
+
+    ws.autoFilter = { from: 'A1', to: 'J1' };
+
+    // Data rows
+    allComments.forEach(function(c, i) {
+      var rowNum = i + 2;
+      ws.getRow(rowNum).height = 22;
+      var vals = [
+        c.user ? (c.user.handle || c.user.name || '') : '',
+        formatDatePtBR(c.created_at),
+        stripHtml(c.message || ''),
+        '', '', '', '', '', '', ''
+      ];
+      cols.forEach(function(col, ci) {
+        var cell = ws.getCell(rowNum, ci + 1);
+        cell.value = vals[ci];
+        dStyle(cell, col.dataBg, col.align, col.rb || false);
+        if (col.dv) {
+          cell.dataValidation = {
+            type: 'list', allowBlank: true, showErrorMessage: false,
+            formulae: [col.dv]
+          };
+        }
+      });
+    });
+
+    // Apply dropdowns to 200 buffer rows beyond data (for manual entry)
+    var bufferEnd = allComments.length + 200;
+    for (var ri = allComments.length; ri < bufferEnd; ri++) {
+      cols.forEach(function(col, ci) {
+        if (!col.dv) return;
+        ws.getCell(ri + 2, ci + 1).dataValidation = {
+          type: 'list', allowBlank: true, showErrorMessage: false,
+          formulae: [col.dv]
+        };
+      });
+    }
+
+    // ── Generate and download ─────────────────────────────────────────────────
+    var buffer = await wb.xlsx.writeBuffer();
+    var blob   = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    var url    = URL.createObjectURL(blob);
+    var a      = document.createElement('a');
+    a.href     = url;
+    a.download = 'design_critique_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    setStatus(allComments.length + ' comentário(s) exportado(s) para a planilha.', 'success');
+
+  } catch(e) {
+    console.error('[ExcelJS] Erro:', e);
+    setStatus('Erro ao gerar planilha: ' + e.message, 'error');
+  } finally {
+    btnExp.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
